@@ -18,6 +18,10 @@ import java.util.Locale
 
 class MainActivity : Activity() {
     private lateinit var distanceInput: EditText
+
+    private lateinit var speedInput: EditText
+
+    private lateinit var timeEstimate: TextView
     private lateinit var severitySpinner: Spinner
     private lateinit var vehicleSpinner: Spinner
     private lateinit var status: TextView
@@ -52,6 +56,18 @@ class MainActivity : Activity() {
             setSingleLine(true)
         }
         root.addView(distanceInput)
+
+        root.addView(space(12))
+        root.addView(label("Simulated speed (mph)", 16f, true, Color.rgb(12, 33, 45)))
+        speedInput = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText("30")
+            contentDescription = "Simulated speed in miles per hour"
+            setSingleLine(true)
+        }
+        root.addView(speedInput)
+
+
         root.addView(space(12))
 
         root.addView(label("Pothole severity", 16f, true, Color.rgb(12, 33, 45)))
@@ -91,11 +107,14 @@ class MainActivity : Activity() {
         status = label("", 24f, true, Color.rgb(12, 33, 45))
         detail = label("", 17f, false, Color.rgb(35, 49, 58))
         range = label("", 14f, false, Color.DKGRAY)
+        timeEstimate = label("", 17f, true, Color.rgb(12, 33, 45))
         root.addView(status)
         root.addView(space(10))
         root.addView(detail)
         root.addView(space(10))
         root.addView(range)
+        root.addView(space(10))
+        root.addView(timeEstimate)
         root.addView(space(20))
         root.addView(button("SPEAK CURRENT ALERT") {
             if (!speechReady) {
@@ -121,6 +140,11 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         val distance = readDistance() ?: return
+        val speedMph = speedInput.text.toString().toIntOrNull()
+        if (speedMph == null || speedMph !in 0..100) {
+            speedInput.error = "Enter a whole number from 0 to 100 mph"
+            return
+        }
         val severity = Severity.entries[severitySpinner.selectedItemPosition]
         val vehicle = Vehicle.entries[vehicleSpinner.selectedItemPosition]
         val result = AlertLogic.evaluate(distance, severity, vehicle, passed)
@@ -134,6 +158,14 @@ class MainActivity : Activity() {
         })
         detail.text = result.explanation
         range.text = "Alert range for this combination: ${result.thresholdMeters} m"
+        timeEstimate.text = when {
+            passed -> "Estimated time: hazard passed"
+            speedMph == 0 -> "Estimated time: stopped"
+            else -> {
+                val seconds = distance / (speedMph * 0.44704)
+                "Estimated time to pothole: %.1f seconds".format(Locale.US, seconds)
+            }
+        }
     }
 
     private fun readDistance(): Int? {
